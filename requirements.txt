@@ -1,0 +1,6 @@
+scipy
+scikit-image
+torch
+torchvision
+numpy
+gym

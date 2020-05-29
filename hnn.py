@@ -3,7 +3,7 @@
 
 import torch
 import numpy as np
-
+import pdb
 from nn_models import MLP
 from utils import rk4
 
@@ -33,8 +33,8 @@ class HNN(torch.nn.Module):
     def time_derivative(self, x, t=None, separate_fields=False):
         '''NEURAL ODE-STLE VECTOR FIELD'''
         if self.baseline:
-            return self.differentiable_model(x)
-
+            return self.differentiable_model(x) # Jsbae: same as just calling forward
+        pdb.set_trace()
         '''NEURAL HAMILTONIAN-STLE VECTOR FIELD'''
         F1, F2 = self.forward(x) # traditional forward pass
 

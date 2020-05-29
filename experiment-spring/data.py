@@ -3,6 +3,7 @@
 
 import autograd
 import autograd.numpy as np
+import pdb
 
 import scipy.integrate
 solve_ivp = scipy.integrate.solve_ivp
@@ -13,9 +14,10 @@ def hamiltonian_fn(coords):
     return H
 
 def dynamics_fn(t, coords):
+    #pdb.set_trace()
     dcoords = autograd.grad(hamiltonian_fn)(coords)
-    dqdt, dpdt = np.split(dcoords,2)
-    S = np.concatenate([dpdt, -dqdt], axis=-1)
+    dqdt, dpdt = np.split(dcoords,2) # Weird -> dHdq, dHdp
+    S = np.concatenate([dpdt, -dqdt], axis=-1) # S = [dq/dt, dp/dt]
     return S
 
 def get_trajectory(t_span=[0,3], timescale=10, radius=None, y0=None, noise_std=0.1, **kwargs):
@@ -23,11 +25,11 @@ def get_trajectory(t_span=[0,3], timescale=10, radius=None, y0=None, noise_std=0
     
     # get initial state
     if y0 is None:
-        y0 = np.random.rand(2)*2-1
+        y0 = np.random.rand(2)*2-1 # Sample starting points (q0, p0)
     if radius is None:
         radius = np.random.rand()*0.9 + 0.1 # sample a range of radii
     y0 = y0 / np.sqrt((y0**2).sum()) * radius ## set the appropriate radius
-
+    #pdb.set_trace()
     spring_ivp = solve_ivp(fun=dynamics_fn, t_span=t_span, y0=y0, t_eval=t_eval, rtol=1e-10, **kwargs)
     q, p = spring_ivp['y'][0], spring_ivp['y'][1]
     dydt = [dynamics_fn(None, y) for y in spring_ivp['y'].T]
@@ -46,7 +48,7 @@ def get_dataset(seed=0, samples=50, test_split=0.5, **kwargs):
     np.random.seed(seed)
     xs, dxs = [], []
     for s in range(samples):
-        x, y, dx, dy, t = get_trajectory(**kwargs)
+        x, y, dx, dy, t = get_trajectory(**kwargs) #x -> q, y -> p
         xs.append( np.stack( [x, y]).T )
         dxs.append( np.stack( [dx, dy]).T )
         
@@ -63,6 +65,7 @@ def get_dataset(seed=0, samples=50, test_split=0.5, **kwargs):
 
 def get_field(xmin=-1.2, xmax=1.2, ymin=-1.2, ymax=1.2, gridsize=20):
     field = {'meta': locals()}
+    #pdb.set_trace()
 
     # meshgrid to get vector field
     b, a = np.meshgrid(np.linspace(xmin, xmax, gridsize), np.linspace(ymin, ymax, gridsize))
