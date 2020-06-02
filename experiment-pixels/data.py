@@ -66,6 +66,7 @@ def sample_gym(seed=0, timesteps=103, trials=200, side=28, min_angle=0., max_ang
                 print("\tRunning environment...")
 
         frames.append(preproc(env.render('rgb_array'), side))
+        print('Step: {}'.format(step))
         if step == 0 :
             import imageio
             temp = frames[0]*255
@@ -101,7 +102,7 @@ def make_gym_dataset(test_split=0.2, **kwargs):
         # concat adjacent frames to get velocity information
         # now the pixel arrays have same information as canonical coords
         # ...but in a different (highly nonlinear) basis
-        p = np.concatenate([pix[:-1], pix[1:]], axis=-1)
+        p = np.concatenate([pix[1:], pix[1:]-pix[:-1]], axis=-1)
 
         dp = p[1:] - p[:-1]
         p = p[1:]
@@ -114,9 +115,9 @@ def make_gym_dataset(test_split=0.2, **kwargs):
         # append to lists
         coords.append(cc);
         dcoords.append(dcc)
-        pixels.append(p);
+        pixels.append(p)
         dpixels.append(dp)
-        next_pixels.append(next_p);
+        next_pixels.append(next_p)
         next_dpixels.append(next_dp)
 
     # concatenate across trials

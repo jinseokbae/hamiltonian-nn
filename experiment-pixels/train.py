@@ -57,7 +57,7 @@ def pixelhnn_loss(x, x_next, model, return_scalar=True):
     # hnn vector field loss
     noise = args.input_noise * torch.randn(*z.shape)
     z_hat_next = z + model.time_derivative(z + noise)  # replace with rk4
-    hnn_loss = ((z_next - z_hat_next) ** 2).mean(1)
+    hnn_loss = ((z_next - z_hat_next) ** 2).mean(1) # jsbae: [real](z_next - z) - [predicted]model.time_derivative(z + noise)
 
     # canonical coordinate loss
     # -> makes latent space look like (x, v) coordinates
