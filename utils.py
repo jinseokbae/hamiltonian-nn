@@ -5,6 +5,8 @@ import numpy as np
 import os, torch, pickle, zipfile
 import imageio, shutil
 import scipy, scipy.misc, scipy.integrate
+from skimage.transform import resize
+import pdb
 solve_ivp = scipy.integrate.solve_ivp
 
 
@@ -95,8 +97,9 @@ def make_gif(frames, save_dir, name='pendulum', duration=1e-1, pixels=None, divi
         im[divider,:] = 0
         im[divider + 1,:] = 255
         if pixels is not None:
-          im = scipy.misc.imresize(im, pixels)
-        scipy.misc.imsave(temp_dir + '/f_{:04d}.png'.format(i), im)
+          im = resize(im, pixels)
+        im = im.astype('uint8')
+        imageio.imwrite(temp_dir + '/f_{:04d}.png'.format(i), im)
 
     images = []
     for file_name in sorted(os.listdir(temp_dir)):

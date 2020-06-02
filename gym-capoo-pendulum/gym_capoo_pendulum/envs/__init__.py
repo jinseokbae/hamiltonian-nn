@@ -1,0 +1,1 @@
+from gym_capoo_pendulum.envs.capoo_pendulum_env import CapooPendulumEnv
