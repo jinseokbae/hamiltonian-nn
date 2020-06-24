@@ -99,7 +99,7 @@ def train(args):
     for step in range(args.total_steps + 1):
 
         # train step
-        print("step : {}".format(step))
+
         ixs = torch.randperm(x.shape[0])[:args.batch_size]
         loss = pixelhnn_loss(x[ixs], next_x[ixs], model)
         loss.backward()
