@@ -5,6 +5,7 @@ import autograd
 import autograd.numpy as np
 import scipy.integrate
 import pdb
+import os
 solve_ivp = scipy.integrate.solve_ivp
 
 import torch, argparse
@@ -24,7 +25,7 @@ from utils import L2_loss
 def get_args():
     parser = argparse.ArgumentParser(description=None)
     parser.add_argument('--input_dim', default=2 * 3* 64 ** 2, type=int, help='dimensionality of input tensor')
-    parser.add_argument('--hidden_dim', default=600, type=int, help='hidden dimension of mlp')
+    parser.add_argument('--hidden_dim', default=400, type=int, help='hidden dimension of mlp')
     parser.add_argument('--latent_dim', default=4, type=int, help='latent dimension of autoencoder')
     parser.add_argument('--learn_rate', default=1e-3, type=float, help='learning rate')
     parser.add_argument('--input_noise', default=0.0, type=float, help='std of noise added to HNN inputs')
@@ -131,5 +132,10 @@ if __name__ == "__main__":
     # save
     os.makedirs(args.save_dir) if not os.path.exists(args.save_dir) else None
     label = 'baseline' if args.baseline else 'hnn'
-    path = '{}/{}-pixels-{}.tar'.format(args.save_dir, args.name, label)
-    torch.save(model.state_dict(), path)
+    for i in range(0,100):
+        path = '{}/{}-pixels-{}_{}.tar'.format(args.save_dir, args.name, label,i)
+        if os.path.isfile(path):
+            torch.save(model.state_dict(), path)
+            break
+        else :
+            continue
