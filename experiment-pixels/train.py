@@ -31,7 +31,7 @@ def get_args():
     parser.add_argument('--input_noise', default=0.0, type=float, help='std of noise added to HNN inputs')
     parser.add_argument('--batch_size', default=16, type=int, help='batch size')
     parser.add_argument('--nonlinearity', default='tanh', type=str, help='neural net nonlinearity')
-    parser.add_argument('--total_steps', default=10000, type=int, help='number of gradient steps')
+    parser.add_argument('--total_steps', default=1, type=int, help='number of gradient steps')
     parser.add_argument('--print_every', default=200, type=int, help='number of gradient steps between prints')
     parser.add_argument('--verbose', default = True, dest='verbose', action='store_true', help='verbose?')
     parser.add_argument('--name', default='pixels', type=str, help='either "real" or "sim" data')
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     label = 'baseline' if args.baseline else 'hnn'
     for i in range(0,100):
         path = '{}/{}-pixels-{}_{}.tar'.format(args.save_dir, args.name, label,i)
-        if os.path.isfile(path):
+        if not os.path.isfile(path):
             torch.save(model.state_dict(), path)
             break
         else :
