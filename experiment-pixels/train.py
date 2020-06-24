@@ -23,16 +23,16 @@ from utils import L2_loss
 
 def get_args():
     parser = argparse.ArgumentParser(description=None)
-    parser.add_argument('--input_dim', default=2 * 28 ** 2, type=int, help='dimensionality of input tensor')
-    parser.add_argument('--hidden_dim', default=200, type=int, help='hidden dimension of mlp')
-    parser.add_argument('--latent_dim', default=2, type=int, help='latent dimension of autoencoder')
+    parser.add_argument('--input_dim', default=2 * 3* 64 ** 2, type=int, help='dimensionality of input tensor')
+    parser.add_argument('--hidden_dim', default=400, type=int, help='hidden dimension of mlp')
+    parser.add_argument('--latent_dim', default=4, type=int, help='latent dimension of autoencoder')
     parser.add_argument('--learn_rate', default=1e-3, type=float, help='learning rate')
     parser.add_argument('--input_noise', default=0.0, type=float, help='std of noise added to HNN inputs')
-    parser.add_argument('--batch_size', default=200, type=int, help='batch size')
+    parser.add_argument('--batch_size', default=16, type=int, help='batch size')
     parser.add_argument('--nonlinearity', default='tanh', type=str, help='neural net nonlinearity')
     parser.add_argument('--total_steps', default=10000, type=int, help='number of gradient steps')
     parser.add_argument('--print_every', default=200, type=int, help='number of gradient steps between prints')
-    parser.add_argument('--verbose', dest='verbose', action='store_true', help='verbose?')
+    parser.add_argument('--verbose', default = True, dest='verbose', action='store_true', help='verbose?')
     parser.add_argument('--name', default='pixels', type=str, help='either "real" or "sim" data')
     parser.add_argument('--baseline', dest='baseline', action='store_true', help='run baseline or experiment?')
     parser.add_argument('--seed', default=0, type=int, help='random seed')
@@ -49,10 +49,11 @@ def pixelhnn_loss(x, x_next, model, return_scalar=True):
     # encode pixel space -> latent dimension
     z = model.encode(x)
     z_next = model.encode(x_next)
+    Ndim = int(z.shape[1]/2)
 
     # autoencoder loss
     x_hat = model.decode(z)
-    ae_loss = ((x - x_hat) ** 2).mean(1)
+    ae_loss = ((x[:,:] - x_hat[:,:]) ** 2).mean(1)
 
     # hnn vector field loss
     noise = args.input_noise * torch.randn(*z.shape)
@@ -61,8 +62,8 @@ def pixelhnn_loss(x, x_next, model, return_scalar=True):
 
     # canonical coordinate loss
     # -> makes latent space look like (x, v) coordinates
-    w, dw = z.split(1, 1)
-    w_next, _ = z_next.split(1, 1)
+    w, dw = z.split(Ndim, 1)
+    w_next, _ = z_next.split(Ndim, 1)
     cc_loss = ((dw - (w_next - w)) ** 2).mean(1)
 
     # sum losses and take a gradient step
@@ -76,7 +77,6 @@ def train(args):
     # set random seed
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
-
     # init model and optimizer
     autoencoder = MLPAutoencoder(args.input_dim, args.hidden_dim, args.latent_dim,
                                  nonlinearity='relu')
@@ -88,7 +88,7 @@ def train(args):
     optim = torch.optim.Adam(model.parameters(), args.learn_rate, weight_decay=1e-5)
 
     # get dataset
-    data = get_dataset('pendulum', args.save_dir, verbose=True, seed=args.seed)
+    data = get_dataset('ball', args.save_dir, verbose=True, seed=args.seed)
     x = torch.tensor(data['pixels'], dtype=torch.float32)
     test_x = torch.tensor(data['test_pixels'], dtype=torch.float32)
     next_x = torch.tensor(data['next_pixels'], dtype=torch.float32)
@@ -99,10 +99,11 @@ def train(args):
     for step in range(args.total_steps + 1):
 
         # train step
+        print("step : {}".format(step))
         ixs = torch.randperm(x.shape[0])[:args.batch_size]
         loss = pixelhnn_loss(x[ixs], next_x[ixs], model)
-        loss.backward();
-        optim.step();
+        loss.backward()
+        optim.step()
         optim.zero_grad()
 
         stats['train_loss'].append(loss.item())

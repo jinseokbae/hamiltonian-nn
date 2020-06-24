@@ -24,31 +24,45 @@ class HNN(torch.nn.Module):
             return self.differentiable_model(x)
 
         y = self.differentiable_model(x)
-        assert y.dim() == 2 and y.shape[1] == 2, "Output tensor should have shape [batch_size, 2]"
-        return y.split(1,1)
+        # assert y.dim() == 2 and y.shape[1] == 2, "Output tensor should have shape [batch_size, 2]"
+        return y.split(int(x.shape[1]/2),1) # split into chunks with N dimensions (q*N, P*N)
 
-    def rk4_time_derivative(self, x, dt):
-        pdb.set_trace()
+    def rk4_time_derivative(self, x, dt):# Not using
         return rk4(fun=self.time_derivative, y0=x, t=0, dt=dt)
 
     def time_derivative(self, x, t=None, separate_fields=False):
         '''NEURAL ODE-STLE VECTOR FIELD'''
         if self.baseline:
             return self.differentiable_model(x) # Jsbae: same as just calling forward
-        # pdb.set_trace()
-        '''NEURAL HAMILTONIAN-STLE VECTOR FIELD'''
+
+        '''NEURAL HAMILTONIAN-STYLE VECTOR FIELD'''
+
         F1, F2 = self.forward(x) # traditional forward pass
 
         conservative_field = torch.zeros_like(x) # start out with both components set to 0
         solenoidal_field = torch.zeros_like(x)
+        dF1_N, dF2_N = [], []
+        conservative_field_N, solenoidal_field_N = [], []
+        Ndim = int(x.shape[1]/2)
 
         if self.field_type != 'solenoidal':
-            dF1 = torch.autograd.grad(F1.sum(), x, create_graph=True)[0] # gradients for conservative field
-            conservative_field = dF1 @ torch.eye(*self.M.shape)
+            # dF1 = torch.autograd.grad(F1.sum(), x, create_graph=True)[0] # gradients for conservative field
+            # solenoidal_field = dF1 @ torch.eye(*self.M.shape)
+            for i in range(0,Ndim):
+                dF1 = torch.autograd.grad(F1[:, i].sum(), x, create_graph=True)[0] # gradients for conservative field
+                conservative_field = dF1 @ torch.eye(*self.M.shape)
+                dF1_N.append(dF1)
+                conservative_field_N.append(conservative_field)
+
 
         if self.field_type != 'conservative':
-            dF2 = torch.autograd.grad(F2.sum(), x, create_graph=True)[0] # gradients for solenoidal field
-            solenoidal_field = dF2 @ self.M.t()
+            # dF2 = torch.autograd.grad(F2.sum(), x, create_graph=True)[0] # gradients for solenoidal field
+            # solenoidal_field = dF2 @ self.M.t()
+            for i in range(0,Ndim):
+                dF2 = torch.autograd.grad(F2[:, i].sum(), x, create_graph=True)[0] # gradients for conservative field
+                solenoidal_field = dF2 @ self.M.t()
+                dF2_N.append(dF2)
+                solenoidal_field_N.append(solenoidal_field)
 
         if separate_fields:
             return [conservative_field, solenoidal_field]
@@ -66,7 +80,7 @@ class HNN(torch.nn.Module):
             M *= 1 - torch.eye(n) # clear diagonals
             M[::2] *= -1 # pattern of signs
             M[:,::2] *= -1
-    
+
             for i in range(n): # make asymmetric
                 for j in range(i+1, n):
                     M[i,j] *= -1
@@ -80,7 +94,7 @@ class PixelHNN(torch.nn.Module):
         self.autoencoder = autoencoder
         self.baseline = baseline
 
-        output_dim = input_dim if baseline else 2
+        output_dim = input_dim
         nn_model = MLP(input_dim, hidden_dim, output_dim, nonlinearity)
         self.hnn = HNN(input_dim, differentiable_model=nn_model, field_type=field_type, baseline=baseline)
 

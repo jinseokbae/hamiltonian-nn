@@ -37,7 +37,7 @@ def preproc(X, side):
 #     return resize(X, [int(side), side]) / 255.
 
 
-def sample_gym(seed=0, timesteps=103, trials=200, side=28, min_angle=0., max_angle=np.pi / 6,
+def sample_gym(seed=0, timesteps=103, trials=2, side=28, min_angle=0., max_angle=np.pi / 6,
                verbose=False, env_name='Pendulum-v0'):
     gym_settings = locals()
     if verbose:
@@ -45,7 +45,7 @@ def sample_gym(seed=0, timesteps=103, trials=200, side=28, min_angle=0., max_ang
         print("Edit 5/20/19: you may have to rewrite the `preproc` function depending on your screen size.")
     # env = gym.make(env_name)
     env = gym.make('gym_capoo_pendulum:capoo-pendulum-v0')
-    env.reset();
+    env.reset()
     env.seed(seed)
 
     canonical_coords, frames = [], []
@@ -84,6 +84,82 @@ def sample_gym(seed=0, timesteps=103, trials=200, side=28, min_angle=0., max_ang
     env.close()
     return canonical_coords, frames, gym_settings
 
+def make_ball_dataset(test_split=0.2, **kwargs):
+    frame_num = 303
+    episode_num = 200
+    timesteps = 100
+    canonical_coords, frames= [], []
+    for episode in range(0, episode_num):
+        print('Loading episode {0:03d}...'.format(episode))
+        coords_dir = 'dataset/ball/coords_64/coords_episode_{0:03d}.txt'.format(episode)
+        frames_dir = 'dataset/ball/images_64/ball_episode_{0:03d}.txt'.format(episode)
+
+        myCoords = np.genfromtxt(coords_dir, delimiter=',')
+        myCoords = myCoords.reshape(4,-1).astype(np.float32)
+
+
+        canonical_coords.append(myCoords[:, 100:].T) # myCoords.T.shape = (303,4)
+        myCoords = None
+
+        myFrames = np.genfromtxt(frames_dir, delimiter=',').astype(np.uint8)
+        frames.append(myFrames[100: ,:]) # myPixels.shape = (303, 64*64*3)
+        myFrames = None
+
+    canonical_coords = np.stack(canonical_coords, axis=0).astype(np.float32) # coords.shape = (200,303,4) -> (E,T,(x,y,xdot,ydot))
+    frames = np.stack(frames, axis=0).astype(np.uint8) # pixels.shape = (200,303,64*64*3) -> (E,T,Image)
+    coords, dcoords = [], []
+    pixels, dpixels = [], []
+    next_pixels, next_dpixels = [], []
+    count = 0
+    for cc, pix in zip (canonical_coords, frames):
+        print('Processing episode {0:03d}'.format(count))
+        count += 1
+        cc = cc[1:]
+        dcc = cc[1:] - cc[:-1]
+        cc = cc[1:]
+
+        p = np.concatenate([pix[1:], pix[1:]-pix[:-1]], axis=-1)
+
+        dp = p[1:] - p[:-1]
+        p = p[1:]
+
+        next_p, next_dp = p[1:], dp[1:]
+        p, dp = p[:-1], dp[:-1]
+        cc, dcc = cc[:-1], dcc[:-1]
+
+        coords.append(cc)
+        dcoords.append(dcc)
+        pixels.append(p)
+        dpixels.append(dp)
+        next_pixels.append(next_p)
+        next_dpixels.append(next_dp)
+
+    # concatenate across trials
+    data = {'coords': coords, 'dcoords': dcoords,
+            'pixels': pixels, 'dpixels': dpixels,
+            'next_pixels': next_pixels, 'next_dpixels': next_dpixels}
+    data = {k: np.concatenate(v) for k, v in data.items()}
+
+    # make a train/test split
+    split_ix = int(data['coords'].shape[0] * test_split)
+    split_data = {}
+    for k, v in data.items():
+        split_data[k], split_data['test_' + k] = v[split_ix:], v[:split_ix]
+    data = split_data
+
+    settings = {}
+    settings['env_name'] = 'one-ball-64'
+    settings['verbose'] = True
+    settings['max_speed'] = (10, 10)
+    settings['min_speed'] = (-10, -10)
+    settings['side'] = 64
+    settings['trials'] = episode_num
+    settings['timesteps'] = timesteps
+    settings['seed'] = 0
+    data['meta'] = settings
+
+    return data
+
 
 def make_gym_dataset(test_split=0.2, **kwargs):
     '''Constructs a dataset of observations from an OpenAI Gym env'''
@@ -93,12 +169,12 @@ def make_gym_dataset(test_split=0.2, **kwargs):
     next_pixels, next_dpixels = [], []  # (pixel space measurements, 1 timestep in future)
 
     trials = gym_settings['trials']
+
     for cc, pix in zip(np.split(canonical_coords, trials), np.split(frames, trials)):
         # calculate cc offsets
         cc = cc[1:]
         dcc = cc[1:] - cc[:-1]
         cc = cc[1:]
-
         # concat adjacent frames to get velocity information
         # now the pixel arrays have same information as canonical coords
         # ...but in a different (highly nonlinear) basis
@@ -121,6 +197,7 @@ def make_gym_dataset(test_split=0.2, **kwargs):
         next_dpixels.append(next_dp)
 
     # concatenate across trials
+
     data = {'coords': coords, 'dcoords': dcoords,
             'pixels': pixels, 'dpixels': dpixels,
             'next_pixels': next_pixels, 'next_dpixels': next_dpixels}
@@ -134,6 +211,7 @@ def make_gym_dataset(test_split=0.2, **kwargs):
     data = split_data
     gym_settings['timesteps'] -= 3  # from all the offsets computed above
     data['meta'] = gym_settings
+    pdb.set_trace()
 
     return data
 
@@ -146,6 +224,8 @@ def get_dataset(experiment_name, save_dir, **kwargs):
         env_name = "Pendulum-v0"
     elif experiment_name == "acrobot":
         env_name = "Acrobot-v1"
+    elif experiment_name =="ball":
+        env_name = "one-ball-64"
     else:
         assert experiment_name in ['pendulum']
 
@@ -156,7 +236,11 @@ def get_dataset(experiment_name, save_dir, **kwargs):
         print("Successfully loaded data from {}".format(path))
     except:
         print("Had a problem loading data from {}. Rebuilding dataset...".format(path))
-        data = make_gym_dataset(**kwargs)
+        if env_name == "one-ball-64":
+            data = make_ball_dataset(**kwargs)
+        elif env_name == "Pendulum-v0":
+            data = make_gym_dataset(**kwargs)
+        print(path)
         to_pickle(data, path)
 
     return data
