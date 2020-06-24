@@ -3,7 +3,7 @@
 
 import numpy as np
 import gym
-import gym_capoo_pendulum
+# import gym_capoo_pendulum
 import pdb
 import scipy, scipy.misc
 from skimage.transform import resize
