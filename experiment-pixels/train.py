@@ -16,11 +16,19 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PARENT_DIR)
 
-from nn_models import MLPAutoencoder, MLP
+from nn_models import MLPAutoencoder, MLP, ConvAutoencoder
 from hnn import HNN, PixelHNN
 from data import get_dataset
 from utils import L2_loss
 
+if torch.cuda.is_available():
+    print('Using GPU')
+    torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    gpu_flag = True
+else:
+    print('Using CPU')
+    torch.set_default_tensor_type('torch.FloatTensor')
+    gpu_flag = False
 
 def get_args():
     parser = argparse.ArgumentParser(description=None)
@@ -79,21 +87,37 @@ def train(args):
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
     # init model and optimizer
-    autoencoder = MLPAutoencoder(args.input_dim, args.hidden_dim, args.latent_dim,
+    autoencoder = ConvAutoencoder(args.input_dim, args.hidden_dim, args.latent_dim,
                                  nonlinearity='relu')
     model = PixelHNN(args.latent_dim, args.hidden_dim,
                      autoencoder=autoencoder, nonlinearity=args.nonlinearity,
                      baseline=args.baseline)
+    if gpu_flag:
+        model = model.cuda()
+
     if args.verbose:
         print("Training baseline model:" if args.baseline else "Training HNN model:")
     optim = torch.optim.Adam(model.parameters(), args.learn_rate, weight_decay=1e-5)
 
     # get dataset
     data = get_dataset('ball', args.save_dir, verbose=True, seed=args.seed)
+    x,test_x,next_x,test_next_x = [],[],[],[]
+
     x = torch.tensor(data['pixels'], dtype=torch.float32)
     test_x = torch.tensor(data['test_pixels'], dtype=torch.float32)
     next_x = torch.tensor(data['next_pixels'], dtype=torch.float32)
     test_next_x = torch.tensor(data['test_next_pixels'], dtype=torch.float32)
+
+    if not gpu_flag:
+        x = torch.tensor(data['pixels'], dtype=torch.float32).cuda()
+        test_x = torch.tensor(data['test_pixels'], dtype=torch.float32).cuda()
+        next_x = torch.tensor(data['next_pixels'], dtype=torch.float32).cuda()
+        test_next_x = torch.tensor(data['test_next_pixels'], dtype=torch.float32).cuda()
+    else :
+        x = torch.tensor(data['pixels'], dtype=torch.float32)
+        test_x = torch.tensor(data['test_pixels'], dtype=torch.float32)
+        next_x = torch.tensor(data['next_pixels'], dtype=torch.float32)
+        test_next_x = torch.tensor(data['test_next_pixels'], dtype=torch.float32)
 
     # vanilla ae train loop
     stats = {'train_loss': [], 'test_loss': []}
