@@ -30,6 +30,7 @@ else:
     torch.set_default_tensor_type('torch.FloatTensor')
     gpu_flag = False
 
+
 def get_args():
     parser = argparse.ArgumentParser(description=None)
     parser.add_argument('--input_dim', default=2 * 3* 64 ** 2, type=int, help='dimensionality of input tensor')
