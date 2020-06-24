@@ -34,7 +34,7 @@ def get_args():
     parser.add_argument('--total_steps', default=1, type=int, help='number of gradient steps')
     parser.add_argument('--print_every', default=200, type=int, help='number of gradient steps between prints')
     parser.add_argument('--verbose', default = True, dest='verbose', action='store_true', help='verbose?')
-    parser.add_argument('--name', default='pixels', type=str, help='either "real" or "sim" data')
+    parser.add_argument('--name', default='balls', type=str, help='either "real" or "sim" data')
     parser.add_argument('--baseline', dest='baseline', action='store_true', help='run baseline or experiment?')
     parser.add_argument('--seed', default=0, type=int, help='random seed')
     parser.add_argument('--save_dir', default=THIS_DIR, type=str, help='where to save the trained model')
